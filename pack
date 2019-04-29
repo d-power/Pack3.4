@@ -1,0 +1,167 @@
+#!/bin/bash
+
+#set -e
+
+ROOT_DIR=$PWD
+TOOLS_DIR=${ROOT_DIR}/pctools
+OUT_DIR=${ROOT_DIR}/out
+export PATH=${TOOLS_DIR}/linux/mod_update:${TOOLS_DIR}/linux/eDragonEx:${TOOLS_DIR}/linux/fsbuild200:${TOOLS_DIR}/linux/openssl:$PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${TOOLS_DIR}/linux/libs
+DEBUG_VERSION=release
+
+show_help()
+{
+printf "
+NAME
+    pack-new - The pack tools for linux firmware
+
+SYNOPSIS
+    pack [-h] [-b board]
+
+OPTIONS
+    -h                  Display help message
+    -b [board_type]     Board type, e.g. E72 
+    -c [custom]         custom board,e.g HYT,LILIN
+"
+}
+
+while getopts hc:p:b:B:d:f: OPTION
+do
+    case $OPTION in
+    h) show_help
+    exit 0
+    ;;
+    
+    b) PACK_BOARD=$OPTARG
+    ;;
+    
+    c) CUSTOM_INFO=$OPTARG
+    ;;
+    
+  	d) DEBUG_VERSION=$OPTARG
+    ;;
+  
+    *) show_help
+    exit 0
+    ;;
+esac
+done
+
+do_prepare()
+ {
+    if [ -d ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD ]; then
+        rm -rf ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+    fi
+    mkdir -p ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/  
+}
+
+
+do_pack_linux()
+{
+    printf "!!!Packing for linux!!!\n"
+		
+		cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/kernel/boot.img ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/boot.fex
+		
+		mksquashfs ./pack_src/$CUSTOM_INFO/$PACK_BOARD/rootfs ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/rootfs_squashfs.img -noappend -comp xz
+
+    cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/boot/boot0_spinor.bin ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/boot0_spinor.fex   	
+    cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/boot/u-boot-spinor.bin ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/u-boot-spinor.fex
+    cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/boot/boot0_spinand.bin ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/boot0_spinand.fex
+   	
+   	cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/boot/boot0_sdcard.bin ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/boot0_sdcard.fex   	
+    cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/boot/u-boot.bin ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/u-boot.fex
+   	cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/boot/fes1.bin ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/fes1.fex
+   
+   	
+	  
+		cp -v pack_src/$CUSTOM_INFO/$PACK_BOARD/config/* ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+		cp ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/sys_partition_nor_linux.fex ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/sys_partition_nor.fex
+		cp ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/sys_partition_nor_linux.fex ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/sys_partition.fex
+		
+		if [ "release" == ${DEBUG_VERSION} ]; then
+	 	 cp pack_src/$CUSTOM_INFO/$PACK_BOARD/config/env_release.cfg ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/env.cfg
+	  fi
+	  
+	  if [ "debug" == ${DEBUG_VERSION} ]; then
+	 	 cp pack_src/$CUSTOM_INFO/$PACK_BOARD/config/env_nfs.cfg ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/env.cfg
+	  fi	
+    
+    cp -r pack_src/$CUSTOM_INFO/$PACK_BOARD/boot-resource/* ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+		
+		cp -v ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/boot-resource/logo/boot_log.JPG ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/boot_logo.fex   
+		
+    cp -v common/imagecfg/* ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+    cp -v common/partition/* ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+    cp -v common/sign_config/* ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+    cp -v common/tools/* ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+    
+    sed -i 's/\\boot-resource/\/boot-resource/g' ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/boot-resource.ini
+	  sed -i 's/\\\\/\//g' ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/image.cfg
+	  sed -i 's/^imagename/;imagename/g' ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/image.cfg
+	
+		IMG_NAME="${PACK_BOARD}"
+		IMG_NAME="${OUT_DIR}/$CUSTOM_INFO/${IMG_NAME}.img"
+		echo "imagename = $IMG_NAME" >> ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/image.cfg
+		echo "" >> $${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/image.cfg
+		
+    cd ${OUT_DIR}/$CUSTOM_INFO/output_$PACK_BOARD/
+		 
+  	busybox unix2dos sys_config.fex
+  	busybox unix2dos sys_partition.fex
+  	printf "!!!script script!!!\n"
+  	script sys_config.fex
+		script sys_partition.fex
+		printf "!!!script script!!!\n"
+		 
+    cp sys_config.bin  config.fex
+		
+		update_boot0 boot0_spinor.fex sys_config.bin SDMMC_CARD
+		update_boot0 boot0_spinand.fex	sys_config.bin SDMMC_CARD 
+		
+		update_uboot u-boot-spinor.fex  sys_config.bin
+		
+		update_boot0 boot0_sdcard.fex	sys_config.bin SDMMC_CARD 
+		update_uboot u-boot.fex  sys_config.bin
+		update_fes1  fes1.fex			sys_config.bin > /dev/null
+		
+		update_uboot_v2 u-boot.fex	sys_config.bin ${PACK_BOARD}
+		local ret=`echo $?`
+		if [ $ret != "0" -a $ret != "1" ] ; then
+			pack_error "update_uboot_v2 failed"
+			exit 1
+		elif [ $ret = "1" ] ; then
+			echo "no used multi config"
+		else
+			echo "used multi config"
+		fi
+		
+		fsbuild	     boot-resource.ini  split_xxxx.fex 
+		mv boot-resource.fex	bootloader.fex
+		
+		sunxi_env_gen env.cfg env.fex 
+		
+    update_mbr sys_partition.bin  1
+
+    ln -s boot.img boot.fex
+    ln -s rootfs_squashfs.img rootfs_squashfs.fex
+		
+		merge_package full_img.fex boot0_spinor.fex u-boot-spinor.fex sunxi_mbr.fex sys_partition.bin
+    
+    dragon image.cfg    sys_partition.fex
+    
+    cpfile uboot full_img.fex
+    
+    if [ -e ${IMG_NAME} ]; then
+        echo '----------image is at----------'
+        echo -e '\033[0;31;1m'
+        echo ${IMG_NAME}
+        echo -e '\033[0m'
+    fi
+    
+    
+    printf "pack finish\n"
+}
+
+show_help
+do_prepare
+do_pack_linux

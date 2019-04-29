@@ -1,0 +1,51 @@
+#!/bin/sh
+
+
+MODULES_DIR="/lib/modules/`uname -r`"
+
+start() {
+/bin/mkdir /tmp/media
+
+/bin/mount -t jffs2 /dev/mtdblock5 /data
+
+
+/sbin/insmod $MODULES_DIR/keypad_adc_config.ko
+/sbin/insmod $MODULES_DIR/oncell_HRT_CE.ko
+/sbin/insmod $MODULES_DIR/spiupdate.ko
+
+
+#/usr/bin/amixer cset numid=17 1
+
+#echo "Starting network..."
+#/sbin/ifup -a
+#/sbin/ifconfig eth0 up
+#/sbin/ifconfig lo up
+
+
+
+#/system/app0 &
+}
+
+stop() {
+	echo "Sinit Stopping "
+}
+
+case "$1" in
+    start)
+			echo "Sinit Starting "
+			start
+			;;
+    stop)
+			stop
+			;;
+    restart|reload)
+			echo "Sinit restart|reload "
+			stop
+			start
+			;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?

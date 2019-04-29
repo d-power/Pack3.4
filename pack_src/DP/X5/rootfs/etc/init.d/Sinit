@@ -1,0 +1,70 @@
+#!/bin/sh
+
+
+MODULES_DIR="/lib/modules/`uname -r`"
+start() {
+    printf "Starting:"
+    /bin/mkdir /tmp/media
+
+    /bin/mount -t jffs2 /dev/mtdblock5 /data
+
+
+    /sbin/insmod $MODULES_DIR/keypad_adc_config.ko
+    /sbin/insmod $MODULES_DIR/oncell_HRT_CE.ko
+    /sbin/insmod $MODULES_DIR/spiupdate.ko
+
+    #csi interface sensor driver
+    /sbin/insmod $MODULES_DIR/videobuf-core.ko
+    /sbin/insmod $MODULES_DIR/videobuf-dma-contig.ko
+    /sbin/insmod $MODULES_DIR/cci.ko
+    /sbin/insmod $MODULES_DIR/vfe_os.ko
+    /sbin/insmod $MODULES_DIR/vfe_subdev.ko
+    /sbin/insmod $MODULES_DIR/h42_mipi.ko
+    /sbin/insmod $MODULES_DIR/vfe_v4l2.ko ccm="h42_mipi" i2c_addr="0x60"
+    
+    #usb sensor driver
+    /sbin/insmod $MODULES_DIR/videobuf2-core.ko
+    /sbin/insmod $MODULES_DIR/videobuf2-memops.ko
+    /sbin/insmod $MODULES_DIR/videobuf2-vmalloc.ko
+    /sbin/insmod $MODULES_DIR/uvcvideo.ko
+    
+    #/usr/bin/amixer cset numid=17 1
+
+#echo "Starting network..."
+#/sbin/ifup -a
+#/sbin/ifconfig eth0 up
+#/sbin/ifconfig lo up
+
+
+#/sbin/ifconfig eth0  192.168.251.231 netmask 255.255.255.0
+#/sbin/route add default gw 192.168.251.1
+#/bin/sleep 3
+#/bin/mount -t nfs 192.168.251.66/home/heping/X1H/ROOM/X1H_ROOM /mnt -o nolock
+
+
+#/system/app0 &
+}
+
+
+stop() {
+    printf "Stopping"
+}
+
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart|reload)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+esac
+
+exit $?

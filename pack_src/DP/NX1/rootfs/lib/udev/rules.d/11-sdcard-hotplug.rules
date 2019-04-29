@@ -1,0 +1,8 @@
+#
+# udev rules file for sdcard hotplug
+#
+
+ACTION=="add",KERNEL=="mmcblk[0-9]p[0-9]", RUN+="/etc/udev/sdcard_hotplug.sh add /tmp/media %k"
+ACTION=="add",KERNEL=="mmcblk[0-9]", RUN+="/etc/udev/sdcard_hotplug.sh add /tmp/media %k"
+ACTION=="remove",KERNEL=="mmcblk[0-9]p[0-9]", RUN+="/etc/udev/sdcard_hotplug.sh remove /tmp/media %k"
+ACTION=="remove",KERNEL=="mmcblk[0-9]", RUN+="/etc/udev/sdcard_hotplug.sh remove /tmp/media %k"
